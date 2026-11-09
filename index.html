@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <title>原住民族繪本電子書 - mnanak na qalang</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* 防止手機上下滑動視窗溢出 */
+            background-color: #121212;
+            color: #fff;
+            font-family: "PingFang TC", "Microsoft JhengHei", system-ui, -apple-system, sans-serif;
+        }
+
+        /* 使用 100vh / 100dvh 確保全螢幕呈現，不需上下滾動 */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            height: 100vh;
+            height: 100dvh; /* 相容行動裝置動態網址列 */
+            padding: 8px 10px 12px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+            padding-top: 4px;
+        }
+
+        /* 音訊控制列容器 */
+        .controls-group {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        /* 音訊控制按鈕風格（適合手機點擊） */
+        .audio-control-btn {
+            background-color: #262626;
+            color: #e6c280;
+            border: 1px solid #e6c280;
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            user-select: none;
+        }
+
+        .audio-control-btn:active {
+            transform: scale(0.95);
+        }
+
+        .audio-control-btn.muted {
+            opacity: 0.5;
+            border-color: #666;
+            color: #aaa;
+            background-color: #1a1a1a;
+        }
+
+        h1 {
+            font-size: 1.15rem;
+            color: #e6c280;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
+        /* 繪本圖片區域 */
+        .ebook-container {
+            position: relative;
+            width: 100%;
+            flex: 1; /* 自動佔滿中間所有剩餘空間 */
+            min-height: 0; /* Flex 壓縮關鍵 */
+            background-color: #000;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.9);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 6px 0;
+            touch-action: pan-y; /* 允許捕捉水投手勢 */
+        }
+
+        .page-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .page-img {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            display: none;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        .page-img.active {
+            display: block;
+        }
+
+        /* 手機大面積翻頁按鈕 */
+        .nav-btn {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 50px;
+            background: linear-gradient(to right, rgba(0,0,0,0.4), transparent);
+            color: rgba(255, 255, 255, 0.85);
+            border: none;
+            font-size: 1.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .prev-btn {
+            left: 0;
+            background: linear-gradient(to right, rgba(0,0,0,0.45), transparent);
+        }
+
+        .next-btn {
+            right: 0;
+            background: linear-gradient(to left, rgba(0,0,0,0.45), transparent);
+        }
+
+        .nav-btn:active {
+            background-color: rgba(230, 194, 128, 0.3);
+            color: #fff;
+        }
+
+        .nav-btn.disabled {
+            opacity: 0.15;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* 底部導覽列與縮圖 */
+        footer {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .page-indicator {
+            font-size: 0.9rem;
+            color: #d1d1d1;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .thumbnail-bar {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            width: 100%;
+            padding: 6px;
+            background-color: #1f1f1f;
+            border-radius: 10px;
+            -webkit-overflow-scrolling: touch; /* 滑動平滑流暢 */
+            scrollbar-width: none; /* 隱藏 Firefox 滾動條 */
+        }
+
+        .thumbnail-bar::-webkit-scrollbar {
+            display: none; /* 隱藏 Chrome/Safari 滾動條 */
+        }
+
+        .thumb {
+            width: 48px;
+            height: 34px;
+            object-fit: cover;
+            cursor: pointer;
+            opacity: 0.45;
+            border-radius: 5px;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .thumb.active {
+            opacity: 1;
+            border-color: #e6c280;
+            transform: scale(1.05);
+        }
+
+        /* 電腦與平板適應 */
+        @media (min-width: 600px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+            .audio-control-btn {
+                font-size: 0.85rem;
+                padding: 7px 16px;
+            }
+            .nav-btn {
+                width: 60px;
+                font-size: 2.2rem;
+            }
+            .thumb {
+                width: 56px;
+                height: 40px;
+            }
+            .page-indicator {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- 頂部標題與控制項 -->
+        <header>
+            <div class="controls-group">
+                <button class="audio-control-btn" id="audioToggleBtn" onclick="toggleAudioState()">
+                    <span id="audioIcon">🎵</span> <span id="audioText">背景音樂：開啟</span>
+                </button>
+                <button class="audio-control-btn" id="speechToggleBtn" onclick="toggleSpeechState()">
+                    <span id="speechIcon">🗣️</span> <span id="speechText">朗讀語音：開啟</span>
+                </button>
+            </div>
+            <h1>mnanak na qalang 線上繪本電子書</h1>
+        </header>
+
+        <!-- 主繪本展示區 -->
+        <div class="ebook-container" id="ebookContainer">
+            <!-- 往前翻頁按鈕 -->
+            <button class="nav-btn prev-btn" id="prevBtn" onclick="changePage(-1)" aria-label="上一頁">&#10094;</button>
+
+            <!-- 繪本圖片區域 (0.jpg ~ 19.jpg) -->
+            <div class="page-wrapper">
+                <img src="graphics/0.jpg" alt="封面 - mnanak na qalang" class="page-img active">
+                <img src="graphics/1.jpg" alt="第 1 頁" class="page-img">
+                <img src="graphics/2.jpg" alt="第 2 頁" class="page-img">
+                <img src="graphics/3.jpg" alt="第 3 頁" class="page-img">
+                <img src="graphics/4.jpg" alt="第 4 頁" class="page-img">
+                <img src="graphics/5.jpg" alt="第 5 頁" class="page-img">
+                <img src="graphics/6.jpg" alt="第 6 頁" class="page-img">
+                <img src="graphics/7.jpg" alt="第 7 頁" class="page-img">
+                <img src="graphics/8.jpg" alt="第 8 頁" class="page-img">
+                <img src="graphics/9.jpg" alt="第 9 頁" class="page-img">
+                <img src="graphics/10.jpg" alt="第 10 頁" class="page-img">
+                <img src="graphics/11.jpg" alt="第 11 頁" class="page-img">
+                <img src="graphics/12.jpg" alt="第 12 頁" class="page-img">
+                <img src="graphics/13.jpg" alt="第 13 頁" class="page-img">
+                <img src="graphics/14.jpg" alt="第 14 頁" class="page-img">
+                <img src="graphics/15.jpg" alt="第 15 頁" class="page-img">
+                <img src="graphics/16.jpg" alt="第 16 頁" class="page-img">
+                <img src="graphics/17.jpg" alt="第 17 頁" class="page-img">
+                <img src="graphics/18.jpg" alt="第 18 頁" class="page-img">
+                <img src="graphics/19.jpg" alt="第 19 頁" class="page-img">
+            </div>
+
+            <!-- 背景音樂 (music0.mp3 ~ music19.mp3) -->
+            <div class="audio-wrapper">
+                <audio class="page-audio" src="music/music0.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music1.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music2.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music3.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music4.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music5.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music6.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music7.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music8.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music9.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music10.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music11.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music12.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music13.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music14.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music15.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music16.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music17.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music18.mp3" preload="auto"></audio>
+                <audio class="page-audio" src="music/music19.mp3" preload="auto"></audio>
+            </div>
+
+            <!-- 朗讀語音 (speech0.mp3 ~ speech19.mp3) -->
+            <div class="speech-wrapper">
+                <audio class="page-speech" src="speech/speech0.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech1.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech2.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech3.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech4.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech5.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech6.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech7.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech8.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech9.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech10.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech11.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech12.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech13.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech14.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech15.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech16.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech17.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech18.mp3" preload="auto"></audio>
+                <audio class="page-speech" src="speech/speech19.mp3" preload="auto"></audio>
+            </div>
+
+            <!-- 往後翻頁按鈕 -->
+            <button class="nav-btn next-btn" id="nextBtn" onclick="changePage(1)" aria-label="下一頁">&#10095;</button>
+        </div>
+
+        <!-- 底部控制與縮圖導覽 -->
+        <footer>
+            <div class="page-indicator" id="pageIndicator">頁數：1 / 20</div>
+
+            <div class="thumbnail-bar" id="thumbBar">
+                <img src="graphics/0.jpg" class="thumb active" onclick="goToPage(0)">
+                <img src="graphics/1.jpg" class="thumb" onclick="goToPage(1)">
+                <img src="graphics/2.jpg" class="thumb" onclick="goToPage(2)">
+                <img src="graphics/3.jpg" class="thumb" onclick="goToPage(3)">
+                <img src="graphics/4.jpg" class="thumb" onclick="goToPage(4)">
+                <img src="graphics/5.jpg" class="thumb" onclick="goToPage(5)">
+                <img src="graphics/6.jpg" class="thumb" onclick="goToPage(6)">
+                <img src="graphics/7.jpg" class="thumb" onclick="goToPage(7)">
+                <img src="graphics/8.jpg" class="thumb" onclick="goToPage(8)">
+                <img src="graphics/9.jpg" class="thumb" onclick="goToPage(9)">
+                <img src="graphics/10.jpg" class="thumb" onclick="goToPage(10)">
+                <img src="graphics/11.jpg" class="thumb" onclick="goToPage(11)">
+                <img src="graphics/12.jpg" class="thumb" onclick="goToPage(12)">
+                <img src="graphics/13.jpg" class="thumb" onclick="goToPage(13)">
+                <img src="graphics/14.jpg" class="thumb" onclick="goToPage(14)">
+                <img src="graphics/15.jpg" class="thumb" onclick="goToPage(15)">
+                <img src="graphics/16.jpg" class="thumb" onclick="goToPage(16)">
+                <img src="graphics/17.jpg" class="thumb" onclick="goToPage(17)">
+                <img src="graphics/18.jpg" class="thumb" onclick="goToPage(18)">
+                <img src="graphics/19.jpg" class="thumb" onclick="goToPage(19)">
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        let currentIndex = 0;
+        let isAudioEnabled = true;
+        let isSpeechEnabled = true;
+
+        const pages = document.querySelectorAll('.page-img');
+        const audios = document.querySelectorAll('.page-audio');
+        const speeches = document.querySelectorAll('.page-speech');
+        const thumbs = document.querySelectorAll('.thumb');
+        const totalPages = pages.length;
+        const pageIndicator = document.getElementById('pageIndicator');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const ebookContainer = document.getElementById('ebookContainer');
+
+        function playCurrentMedia() {
+            audios.forEach((audio) => {
+                audio.pause();
+                audio.currentTime = 0;
+            });
+            speeches.forEach((speech) => {
+                speech.pause();
+                speech.currentTime = 0;
+            });
+
+            if (isAudioEnabled && audios[currentIndex]) {
+                const playPromise = audios[currentIndex].play();
+                if (playPromise !== undefined) {
+                    playPromise.catch((error) => console.log("播放被限制:", error));
+                }
+            }
+
+            if (isSpeechEnabled && speeches[currentIndex]) {
+                const speechPromise = speeches[currentIndex].play();
+                if (speechPromise !== undefined) {
+                    speechPromise.catch((error) => console.log("播放被限制:", error));
+                }
+            }
+        }
+
+        function updateUI() {
+            pages.forEach((page, index) => {
+                page.classList.toggle('active', index === currentIndex);
+            });
+
+            thumbs.forEach((thumb, index) => {
+                const isActive = index === currentIndex;
+                thumb.classList.toggle('active', isActive);
+                if (isActive) {
+                    thumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
+            });
+
+            pageIndicator.innerText = `頁數：${currentIndex + 1} / ${totalPages}`;
+            prevBtn.classList.toggle('disabled', currentIndex === 0);
+            nextBtn.classList.toggle('disabled', currentIndex === totalPages - 1);
+
+            playCurrentMedia();
+        }
+
+        function changePage(direction) {
+            const newIndex = currentIndex + direction;
+            if (newIndex >= 0 && newIndex < totalPages) {
+                currentIndex = newIndex;
+                updateUI();
+            }
+        }
+
+        function goToPage(index) {
+            currentIndex = index;
+            updateUI();
+        }
+
+        function toggleAudioState() {
+            isAudioEnabled = !isAudioEnabled;
+            const btn = document.getElementById('audioToggleBtn');
+            const icon = document.getElementById('audioIcon');
+            const text = document.getElementById('audioText');
+
+            if (isAudioEnabled) {
+                btn.classList.remove('muted');
+                icon.innerText = '🎵';
+                text.innerText = '背景音樂：開啟';
+            } else {
+                btn.classList.add('muted');
+                icon.innerText = '🔇';
+                text.innerText = '背景音樂：靜音';
+            }
+            playCurrentMedia();
+        }
+
+        function toggleSpeechState() {
+            isSpeechEnabled = !isSpeechEnabled;
+            const btn = document.getElementById('speechToggleBtn');
+            const icon = document.getElementById('speechIcon');
+            const text = document.getElementById('speechText');
+
+            if (isSpeechEnabled) {
+                btn.classList.remove('muted');
+                icon.innerText = '🗣️';
+                text.innerText = '朗讀語音：開啟';
+            } else {
+                btn.classList.add('muted');
+                icon.innerText = '🔇';
+                text.innerText = '朗讀語音：靜音';
+            }
+            playCurrentMedia();
+        }
+
+        // 觸控滑動翻頁 (Swipe Gesture Support)
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+        let touchEndY = 0;
+
+        ebookContainer.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        }, { passive: true });
+
+        ebookContainer.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            touchEndY = e.changedTouches[0].screenY;
+            handleSwipe();
+        }, { passive: true });
+
+        function handleSwipe() {
+            const diffX = touchEndX - touchStartX;
+            const diffY = touchEndY - touchStartY;
+
+            // 確保是以水平滑動為主（避免與垂直滾動干擾），且滑動距離大於 40px
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+                if (diffX < 0) {
+                    changePage(1);  // 向左滑動 -> 下一頁
+                } else {
+                    changePage(-1); // 向右滑動 -> 上一頁
+                }
+            }
+        }
+
+        document.addEventListener('click', function initAudioOnUserInteraction() {
+            playCurrentMedia();
+        }, { once: true });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') {
+                changePage(-1);
+            } else if (e.key === 'ArrowRight') {
+                changePage(1);
+            }
+        });
+
+        updateUI();
+    </script>
+</body>
+</html>
